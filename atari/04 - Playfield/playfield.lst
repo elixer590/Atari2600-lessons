@@ -1,0 +1,886 @@
+------- FILE playfield.asm LEVEL 1 PASS 1
+      1  0000					      processor	6502
+      2  0000 ????
+------- FILE vcs.h LEVEL 2 PASS 1
+      0  0000 ????				      include	"vcs.h"
+      1  0000 ????						; VCS.H
+      2  0000 ????						; Version 1.05, 13/November/2003
+      3  0000 ????
+      4  0000 ????	       00 69	   VERSION_VCS =	105
+      5  0000 ????
+      6  0000 ????						; THIS IS A PRELIMINARY RELEASE OF *THE* "STANDARD" VCS.H
+      7  0000 ????						; THIS FILE IS EXPLICITLY SUPPORTED AS A DASM-PREFERRED COMPANION FILE
+      8  0000 ????						; PLEASE DO *NOT* REDISTRIBUTE THIS FILE!
+      9  0000 ????						;
+     10  0000 ????						; This file defines hardware registers and memory mapping for the
+     11  0000 ????						; Atari 2600. It is distributed as a companion machine-specific support package
+     12  0000 ????						; for the DASM compiler. Updates to this file, DASM, and associated tools are
+     13  0000 ????						; available at at http://www.atari2600.org/dasm
+     14  0000 ????						;
+     15  0000 ????						; Many thanks to the original author(s) of this file, and to everyone who has
+     16  0000 ????						; contributed to understanding the Atari 2600.  If you take issue with the
+     17  0000 ????						; contents, or naming of registers, please write to me (atari2600@taswegian.com)
+     18  0000 ????						; with your views.  Please contribute, if you think you can improve this
+     19  0000 ????						; file!
+     20  0000 ????						;
+     21  0000 ????						; Latest Revisions...
+     22  0000 ????						; 1.05  13/NOV/2003	  - Correction to 1.04 - now functions as requested by MR.
+     23  0000 ????						;			  - Added VERSION_VCS equate (which will reflect 100x version #)
+     24  0000 ????						;			    This will allow conditional code to verify VCS.H being
+     25  0000 ????						;			    used for code assembly.
+     26  0000 ????						; 1.04  12/NOV/2003	 Added TIA_BASE_WRITE_ADDRESS and TIA_BASE_READ_ADDRESS for
+     27  0000 ????						;			 convenient disassembly/reassembly compatibility for hardware
+     28  0000 ????						;			 mirrored reading/writing differences.	This is more a
+     29  0000 ????						;			 readability issue, and binary compatibility with disassembled
+     30  0000 ????						;			 and reassembled sources.  Per Manuel Rotschkar's suggestion.
+     31  0000 ????						; 1.03  12/MAY/2003	 Added SEG segment at end of file to fix old-code compatibility
+     32  0000 ????						;			 which was broken by the use of segments in this file, as
+     33  0000 ????						;			 reported by Manuel Polik on [stella] 11/MAY/2003
+     34  0000 ????						; 1.02  22/MAR/2003	 Added TIMINT($285)
+     35  0000 ????						; 1.01				Constant offset added to allow use for 3F-style bankswitching
+     36  0000 ????						;						 - define TIA_BASE_ADDRESS as $40 for Tigervision carts, otherwise
+     37  0000 ????						;						   it is safe to leave it undefined, and the base address will
+     38  0000 ????						;						   be set to 0.  Thanks to Eckhard Stolberg for the suggestion.
+     39  0000 ????						;			    Note, may use -DLABEL=EXPRESSION to define TIA_BASE_ADDRESS
+     40  0000 ????						;			  - register definitions are now generated through assignment
+     41  0000 ????						;			    in uninitialised segments.	This allows a changeable base
+     42  0000 ????						;			    address architecture.
+     43  0000 ????						; 1.0	22/MAR/2003		Initial release
+     44  0000 ????
+     45  0000 ????
+     46  0000 ????						;-------------------------------------------------------------------------------
+     47  0000 ????
+     48  0000 ????						; TIA_BASE_ADDRESS
+     49  0000 ????						; The TIA_BASE_ADDRESS defines the base address of access to TIA registers.
+     50  0000 ????						; Normally 0, the base address should (externally, before including this file)
+     51  0000 ????						; be set to $40 when creating 3F-bankswitched (and other?) cartridges.
+     52  0000 ????						; The reason is that this bankswitching scheme treats any access to locations
+     53  0000 ????						; < $40 as a bankswitch.
+     54  0000 ????
+     55  0000 ????				      IFNCONST	TIA_BASE_ADDRESS
+     56  0000 ????	       00 00	   TIA_BASE_ADDRESS =	0
+     57  0000 ????				      ENDIF
+     58  0000 ????
+     59  0000 ????						; Note: The address may be defined on the command-line using the -D switch, eg:
+     60  0000 ????						; dasm.exe code.asm -DTIA_BASE_ADDRESS=$40 -f3 -v5 -ocode.bin
+     61  0000 ????						; *OR* by declaring the label before including this file, eg:
+     62  0000 ????						; TIA_BASE_ADDRESS = $40
+     63  0000 ????						;   include "vcs.h"
+     64  0000 ????
+     65  0000 ????						; Alternate read/write address capability - allows for some disassembly compatibility
+     66  0000 ????						; usage ; to allow reassembly to binary perfect copies).  This is essentially catering
+     67  0000 ????						; for the mirrored ROM hardware registers.
+     68  0000 ????
+     69  0000 ????						; Usage: As per above, define the TIA_BASE_READ_ADDRESS and/or TIA_BASE_WRITE_ADDRESS
+     70  0000 ????						; using the -D command-line switch, as required.  If the addresses are not defined,
+     71  0000 ????						; they defaut to the TIA_BASE_ADDRESS.
+     72  0000 ????
+     73  0000 ????				      IFNCONST	TIA_BASE_READ_ADDRESS
+     74  0000 ????	       00 00	   TIA_BASE_READ_ADDRESS =	TIA_BASE_ADDRESS
+     75  0000 ????				      ENDIF
+     76  0000 ????
+     77  0000 ????				      IFNCONST	TIA_BASE_WRITE_ADDRESS
+     78  0000 ????	       00 00	   TIA_BASE_WRITE_ADDRESS =	TIA_BASE_ADDRESS
+     79  0000 ????				      ENDIF
+     80  0000 ????
+     81  0000 ????						;-------------------------------------------------------------------------------
+     82  0000 ????
+     83 U0000 ????				      SEG.U	TIA_REGISTERS_WRITE
+     84 U0000					      ORG	TIA_BASE_WRITE_ADDRESS
+     85 U0000
+     86 U0000							; DO NOT CHANGE THE RELATIVE ORDERING OF REGISTERS!
+     87 U0000
+     88 U0000		       00	   VSYNC      ds	1	; $00	 0000 00x0   Vertical Sync Set-Clear
+     89 U0001		       00	   VBLANK     ds	1	; $01	 xx00 00x0   Vertical Blank Set-Clear
+     90 U0002		       00	   WSYNC      ds	1	; $02	 ---- ----   Wait for Horizontal Blank
+     91 U0003		       00	   RSYNC      ds	1	; $03	 ---- ----   Reset Horizontal Sync Counter
+     92 U0004		       00	   NUSIZ0     ds	1	; $04	 00xx 0xxx   Number-Size player/missle 0
+     93 U0005		       00	   NUSIZ1     ds	1	; $05	 00xx 0xxx   Number-Size player/missle 1
+     94 U0006		       00	   COLUP0     ds	1	; $06	 xxxx xxx0   Color-Luminance Player 0
+     95 U0007		       00	   COLUP1     ds	1	; $07	 xxxx xxx0   Color-Luminance Player 1
+     96 U0008		       00	   COLUPF     ds	1	; $08	 xxxx xxx0   Color-Luminance Playfield
+     97 U0009		       00	   COLUBK     ds	1	; $09	 xxxx xxx0   Color-Luminance Background
+     98 U000a		       00	   CTRLPF     ds	1	; $0A	 00xx 0xxx   Control Playfield, Ball, Collisions
+     99 U000b		       00	   REFP0      ds	1	; $0B	 0000 x000   Reflection Player 0
+    100 U000c		       00	   REFP1      ds	1	; $0C	 0000 x000   Reflection Player 1
+    101 U000d		       00	   PF0	      ds	1	; $0D	 xxxx 0000   Playfield Register Byte 0
+    102 U000e		       00	   PF1	      ds	1	; $0E	 xxxx xxxx   Playfield Register Byte 1
+    103 U000f		       00	   PF2	      ds	1	; $0F	 xxxx xxxx   Playfield Register Byte 2
+    104 U0010		       00	   RESP0      ds	1	; $10	 ---- ----   Reset Player 0
+    105 U0011		       00	   RESP1      ds	1	; $11	 ---- ----   Reset Player 1
+    106 U0012		       00	   RESM0      ds	1	; $12	 ---- ----   Reset Missle 0
+    107 U0013		       00	   RESM1      ds	1	; $13	 ---- ----   Reset Missle 1
+    108 U0014		       00	   RESBL      ds	1	; $14	 ---- ----   Reset Ball
+    109 U0015		       00	   AUDC0      ds	1	; $15	 0000 xxxx   Audio Control 0
+    110 U0016		       00	   AUDC1      ds	1	; $16	 0000 xxxx   Audio Control 1
+    111 U0017		       00	   AUDF0      ds	1	; $17	 000x xxxx   Audio Frequency 0
+    112 U0018		       00	   AUDF1      ds	1	; $18	 000x xxxx   Audio Frequency 1
+    113 U0019		       00	   AUDV0      ds	1	; $19	 0000 xxxx   Audio Volume 0
+    114 U001a		       00	   AUDV1      ds	1	; $1A	 0000 xxxx   Audio Volume 1
+    115 U001b		       00	   GRP0       ds	1	; $1B	 xxxx xxxx   Graphics Register Player 0
+    116 U001c		       00	   GRP1       ds	1	; $1C	 xxxx xxxx   Graphics Register Player 1
+    117 U001d		       00	   ENAM0      ds	1	; $1D	 0000 00x0   Graphics Enable Missle 0
+    118 U001e		       00	   ENAM1      ds	1	; $1E	 0000 00x0   Graphics Enable Missle 1
+    119 U001f		       00	   ENABL      ds	1	; $1F	 0000 00x0   Graphics Enable Ball
+    120 U0020		       00	   HMP0       ds	1	; $20	 xxxx 0000   Horizontal Motion Player 0
+    121 U0021		       00	   HMP1       ds	1	; $21	 xxxx 0000   Horizontal Motion Player 1
+    122 U0022		       00	   HMM0       ds	1	; $22	 xxxx 0000   Horizontal Motion Missle 0
+    123 U0023		       00	   HMM1       ds	1	; $23	 xxxx 0000   Horizontal Motion Missle 1
+    124 U0024		       00	   HMBL       ds	1	; $24	 xxxx 0000   Horizontal Motion Ball
+    125 U0025		       00	   VDELP0     ds	1	; $25	 0000 000x   Vertical Delay Player 0
+    126 U0026		       00	   VDELP1     ds	1	; $26	 0000 000x   Vertical Delay Player 1
+    127 U0027		       00	   VDELBL     ds	1	; $27	 0000 000x   Vertical Delay Ball
+    128 U0028		       00	   RESMP0     ds	1	; $28	 0000 00x0   Reset Missle 0 to Player 0
+    129 U0029		       00	   RESMP1     ds	1	; $29	 0000 00x0   Reset Missle 1 to Player 1
+    130 U002a		       00	   HMOVE      ds	1	; $2A	 ---- ----   Apply Horizontal Motion
+    131 U002b		       00	   HMCLR      ds	1	; $2B	 ---- ----   Clear Horizontal Move Registers
+    132 U002c		       00	   CXCLR      ds	1	; $2C	 ---- ----   Clear Collision Latches
+    133 U002d
+    134 U002d							;-------------------------------------------------------------------------------
+    135 U002d
+    136 U0000 ????				      SEG.U	TIA_REGISTERS_READ
+    137 U0000					      ORG	TIA_BASE_READ_ADDRESS
+    138 U0000
+    139 U0000							;											bit 7	 bit 6
+    140 U0000		       00	   CXM0P      ds	1	; $00	     xx00 0000	     Read Collision  M0-P1   M0-P0
+    141 U0001		       00	   CXM1P      ds	1	; $01	     xx00 0000			     M1-P0   M1-P1
+    142 U0002		       00	   CXP0FB     ds	1	; $02	     xx00 0000			     P0-PF   P0-BL
+    143 U0003		       00	   CXP1FB     ds	1	; $03	     xx00 0000			     P1-PF   P1-BL
+    144 U0004		       00	   CXM0FB     ds	1	; $04	     xx00 0000			     M0-PF   M0-BL
+    145 U0005		       00	   CXM1FB     ds	1	; $05	     xx00 0000			     M1-PF   M1-BL
+    146 U0006		       00	   CXBLPF     ds	1	; $06	     x000 0000			     BL-PF   -----
+    147 U0007		       00	   CXPPMM     ds	1	; $07	     xx00 0000			     P0-P1   M0-M1
+    148 U0008		       00	   INPT0      ds	1	; $08	     x000 0000	     Read Pot Port 0
+    149 U0009		       00	   INPT1      ds	1	; $09	     x000 0000	     Read Pot Port 1
+    150 U000a		       00	   INPT2      ds	1	; $0A	     x000 0000	     Read Pot Port 2
+    151 U000b		       00	   INPT3      ds	1	; $0B	     x000 0000	     Read Pot Port 3
+    152 U000c		       00	   INPT4      ds	1	; $0C		x000 0000	 Read Input (Trigger) 0
+    153 U000d		       00	   INPT5      ds	1	; $0D		x000 0000	 Read Input (Trigger) 1
+    154 U000e
+    155 U000e							;-------------------------------------------------------------------------------
+    156 U000e
+    157 U0000 ????				      SEG.U	RIOT
+    158 U0280					      ORG	$280
+    159 U0280
+    160 U0280							; RIOT MEMORY MAP
+    161 U0280
+    162 U0280		       00	   SWCHA      ds	1	; $280      Port A data register for joysticks:
+    163 U0281							;			Bits 4-7 for player 1.  Bits 0-3 for player 2.
+    164 U0281
+    165 U0281		       00	   SWACNT     ds	1	; $281      Port A data direction register (DDR)
+    166 U0282		       00	   SWCHB      ds	1	; $282		Port B data (console switches)
+    167 U0283		       00	   SWBCNT     ds	1	; $283      Port B DDR
+    168 U0284		       00	   INTIM      ds	1	; $284		Timer output
+    169 U0285
+    170 U0285		       00	   TIMINT     ds	1	; $285
+    171 U0286
+    172 U0286							; Unused/undefined registers ($285-$294)
+    173 U0286
+    174 U0286		       00		      ds	1	; $286
+    175 U0287		       00		      ds	1	; $287
+    176 U0288		       00		      ds	1	; $288
+    177 U0289		       00		      ds	1	; $289
+    178 U028a		       00		      ds	1	; $28A
+    179 U028b		       00		      ds	1	; $28B
+    180 U028c		       00		      ds	1	; $28C
+    181 U028d		       00		      ds	1	; $28D
+    182 U028e		       00		      ds	1	; $28E
+    183 U028f		       00		      ds	1	; $28F
+    184 U0290		       00		      ds	1	; $290
+    185 U0291		       00		      ds	1	; $291
+    186 U0292		       00		      ds	1	; $292
+    187 U0293		       00		      ds	1	; $293
+    188 U0294
+    189 U0294		       00	   TIM1T      ds	1	; $294		set 1 clock interval
+    190 U0295		       00	   TIM8T      ds	1	; $295      set 8 clock interval
+    191 U0296		       00	   TIM64T     ds	1	; $296      set 64 clock interval
+    192 U0297		       00	   T1024T     ds	1	; $297      set 1024 clock interval
+    193 U0298
+    194 U0298							;-------------------------------------------------------------------------------
+    195 U0298							; The following required for back-compatibility with code which does not use
+    196 U0298							; segments.
+    197 U0298
+    198  0000 ????				      SEG
+    199  0000 ????
+    200  0000 ????						; EOF
+------- FILE playfield.asm
+------- FILE macro.h LEVEL 2 PASS 1
+      0  0000 ????				      include	"macro.h"
+      1  0000 ????						; MACRO.H
+      2  0000 ????						; Version 1.07, 19/January/2020
+      3  0000 ????
+      4  0000 ????	       00 6b	   VERSION_MACRO =	107
+      5  0000 ????
+      6  0000 ????						;
+      7  0000 ????						; THIS FILE IS EXPLICITLY SUPPORTED AS A DASM-PREFERRED COMPANION FILE
+      8  0000 ????						; PLEASE DO *NOT* REDISTRIBUTE MODIFIED VERSIONS OF THIS FILE!
+      9  0000 ????						;
+     10  0000 ????						; This file defines DASM macros useful for development for the Atari 2600.
+     11  0000 ????						; It is distributed as a companion machine-specific support package
+     12  0000 ????						; for the DASM compiler. Updates to this file, DASM, and associated tools are
+     13  0000 ????						; available at at http://www.atari2600.org/dasm
+     14  0000 ????						;
+     15  0000 ????						; Many thanks to the people who have contributed.  If you take issue with the
+     16  0000 ????						; contents, or would like to add something, please write to me
+     17  0000 ????						; (atari2600@taswegian.com) with your contribution.
+     18  0000 ????						;
+     19  0000 ????						; Latest Revisions...
+     20  0000 ????						; 1.07  19/JAN/2020	 - correction to comment VERTICAL_SYNC
+     21  0000 ????						; 1.06  03/SEP/2004	 - nice revision of VERTICAL_SYNC (Edwin Blink)
+     22  0000 ????						; 1.05  14/NOV/2003	 - Added VERSION_MACRO equate (which will reflect 100x version #)
+     23  0000 ????						;			   This will allow conditional code to verify MACRO.H being
+     24  0000 ????						;			   used for code assembly.
+     25  0000 ????						; 1.04  13/NOV/2003	 - SET_POINTER macro added (16-bit address load)
+     26  0000 ????						;
+     27  0000 ????						; 1.03  23/JUN/2003	 - CLEAN_START macro added - clears TIA, RAM, registers
+     28  0000 ????						;
+     29  0000 ????						; 1.02  14/JUN/2003	 - VERTICAL_SYNC macro added
+     30  0000 ????						;			   (standardised macro for vertical synch code)
+     31  0000 ????						; 1.01  22/MAR/2003	 - SLEEP macro added.
+     32  0000 ????						;			 - NO_ILLEGAL_OPCODES switch implemented
+     33  0000 ????						; 1.0	22/MAR/2003		Initial release
+     34  0000 ????
+     35  0000 ????						; Note: These macros use illegal opcodes.  To disable illegal opcode usage,
+     36  0000 ????						;   define the symbol NO_ILLEGAL_OPCODES (-DNO_ILLEGAL_OPCODES=1 on command-line).
+     37  0000 ????						;   If you do not allow illegal opcode usage, you must include this file
+     38  0000 ????						;   *after* including VCS.H (as the non-illegal opcodes access hardware
+     39  0000 ????						;   registers and require them to be defined first).
+     40  0000 ????
+     41  0000 ????						; Available macros...
+     42  0000 ????						;   SLEEP n		 - sleep for n cycles
+     43  0000 ????						;   VERTICAL_SYNC	 - correct 3 scanline vertical synch code
+     44  0000 ????						;   CLEAN_START	 - set machine to known state on startup
+     45  0000 ????						;   SET_POINTER	 - load a 16-bit absolute to a 16-bit variable
+     46  0000 ????
+     47  0000 ????						;-------------------------------------------------------------------------------
+     48  0000 ????						; SLEEP duration
+     49  0000 ????						; Original author: Thomas Jentzsch
+     50  0000 ????						; Inserts code which takes the specified number of cycles to execute.	This is
+     51  0000 ????						; useful for code where precise timing is required.
+     52  0000 ????						; ILLEGAL-OPCODE VERSION DOES NOT AFFECT FLAGS OR REGISTERS.
+     53  0000 ????						; LEGAL OPCODE VERSION MAY AFFECT FLAGS
+     54  0000 ????						; Uses illegal opcode (DASM 2.20.01 onwards).
+     55  0000 ????
+     56  0000 ????				      MAC	sleep
+     57  0000 ????			   .CYCLES    SET	{1}
+     58  0000 ????
+     59  0000 ????				      IF	.CYCLES < 2
+     60  0000 ????				      ECHO	"MACRO ERROR: 'SLEEP': Duration must be > 1"
+     61  0000 ????				      ERR
+     62  0000 ????				      ENDIF
+     63  0000 ????
+     64  0000 ????				      IF	.CYCLES & 1
+     65  0000 ????				      IFNCONST	NO_ILLEGAL_OPCODES
+     66  0000 ????				      nop	0
+     67  0000 ????				      ELSE
+     68  0000 ????				      bit	VSYNC
+     69  0000 ????				      ENDIF
+     70  0000 ????			   .CYCLES    SET	.CYCLES - 3
+     71  0000 ????				      ENDIF
+     72  0000 ????
+     73  0000 ????				      REPEAT	.CYCLES / 2
+     74  0000 ????				      nop
+     75  0000 ????				      REPEND
+     76  0000 ????				      ENDM		;usage: SLEEP n (n>1)
+     77  0000 ????
+     78  0000 ????						;-------------------------------------------------------------------------------
+     79  0000 ????						; VERTICAL_SYNC
+     80  0000 ????						; revised version by Edwin Blink -- saves bytes!
+     81  0000 ????						; Inserts the code required for a proper 3 scanline vertical sync sequence
+     82  0000 ????						; Note: Alters the accumulator
+     83  0000 ????
+     84  0000 ????						; OUT: A = 0
+     85  0000 ????
+     86  0000 ????				      MAC	vertical_sync
+     87  0000 ????				      lda	#%1110	; each '1' bits generate a VSYNC ON line (bits 1..3)
+     88  0000 ????			   .VSLP1     sta	WSYNC	; 1st '0' bit resets Vsync, 2nd '0' bit exit loop
+     89  0000 ????				      sta	VSYNC
+     90  0000 ????				      lsr
+     91  0000 ????				      bne	.VSLP1	; branch until VYSNC has been reset
+     92  0000 ????				      ENDM
+     93  0000 ????
+     94  0000 ????						;-------------------------------------------------------------------------------
+     95  0000 ????						; CLEAN_START
+     96  0000 ????						; Original author: Andrew Davie
+     97  0000 ????						; Standardised start-up code, clears stack, all TIA registers and RAM to 0
+     98  0000 ????						; Sets stack pointer to $FF, and all registers to 0
+     99  0000 ????						; Sets decimal mode off, sets interrupt flag (kind of un-necessary)
+    100  0000 ????						; Use as very first section of code on boot (ie: at reset)
+    101  0000 ????						; Code written to minimise total ROM usage - uses weird 6502 knowledge :)
+    102  0000 ????
+    103  0000 ????				      MAC	clean_start
+    104  0000 ????				      sei
+    105  0000 ????				      cld
+    106  0000 ????
+    107  0000 ????				      ldx	#0
+    108  0000 ????				      txa
+    109  0000 ????				      tay
+    110  0000 ????			   .CLEAR_STACK dex
+    111  0000 ????				      txs
+    112  0000 ????				      pha
+    113  0000 ????				      bne	.CLEAR_STACK	; SP=$FF, X = A = Y = 0
+    114  0000 ????
+    115  0000 ????				      ENDM
+    116  0000 ????
+    117  0000 ????						;-------------------------------------------------------
+    118  0000 ????						; SET_POINTER
+    119  0000 ????						; Original author: Manuel Rotschkar
+    120  0000 ????						;
+    121  0000 ????						; Sets a 2 byte RAM pointer to an absolute address.
+    122  0000 ????						;
+    123  0000 ????						; Usage: SET_POINTER pointer, address
+    124  0000 ????						; Example: SET_POINTER SpritePTR, SpriteData
+    125  0000 ????						;
+    126  0000 ????						; Note: Alters the accumulator, NZ flags
+    127  0000 ????						; IN 1: 2 byte RAM location reserved for pointer
+    128  0000 ????						; IN 2: absolute address
+    129  0000 ????
+    130  0000 ????				      MAC	set_pointer
+    131  0000 ????			   .POINTER   SET	{1}
+    132  0000 ????			   .ADDRESS   SET	{2}
+    133  0000 ????
+    134  0000 ????				      LDA	#<.ADDRESS	; Get Lowbyte of Address
+    135  0000 ????				      STA	.POINTER	; Store in pointer
+    136  0000 ????				      LDA	#>.ADDRESS	; Get Hibyte of Address
+    137  0000 ????				      STA	.POINTER+1	; Store in pointer+1
+    138  0000 ????
+    139  0000 ????				      ENDM
+    140  0000 ????
+    141  0000 ????						;-------------------------------------------------------
+    142  0000 ????						; BOUNDARY byte#
+    143  0000 ????						; Original author: Denis Debro (borrowed from Bob Smith / Thomas)
+    144  0000 ????						;
+    145  0000 ????						; Push data to a certain position inside a page and keep count of how
+    146  0000 ????						; many free bytes the programmer will have.
+    147  0000 ????						;
+    148  0000 ????						; eg: BOUNDARY 5    ; position at byte #5 in page
+    149  0000 ????
+    150  0000 ????			   .FREE_BYTES SET	0
+    151  0000 ????				      MAC	boundary
+    152  0000 ????				      REPEAT	256
+    153  0000 ????				      IF	<. % {1} = 0
+    154  0000 ????				      MEXIT
+    155  0000 ????				      ELSE
+    156  0000 ????			   .FREE_BYTES SET	.FREE_BYTES + 1
+    157  0000 ????				      .byte	$00
+    158  0000 ????				      ENDIF
+    159  0000 ????				      REPEND
+    160  0000 ????				      ENDM
+    161  0000 ????
+    162  0000 ????
+    163  0000 ????						; EOF
+------- FILE playfield.asm
+      5  0000 ????
+      6  0000 ????				      seg	code
+      7  f000					      org	$F000
+      8  f000
+      9  f000							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     10  f000							;; Clean memory to start
+     11  f000							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     12  f000				   START
+      0  f000					      CLEAN_START
+      1  f000		       78		      sei
+      2  f001		       d8		      cld
+      3  f002
+      4  f002		       a2 00		      ldx	#0
+      5  f004		       8a		      txa
+      6  f005		       a8		      tay
+      7  f006		       ca	   .CLEAR_STACK dex
+      8  f007		       9a		      txs
+      9  f008		       48		      pha
+     10  f009		       d0 fb		      bne	.CLEAR_STACK
+     11  f00b
+     14  f00b
+     15  f00b		       a2 80		      ldx	#$80
+     16  f00d		       86 09		      stx	COLUBK
+     17  f00f
+     18  f00f		       a9 1c		      lda	#$1C
+     19  f011		       85 08		      sta	COLUPF
+     20  f013
+     21  f013							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     22  f013							;; Start new frame by turning on vblank and vsync
+     23  f013							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     24  f013				   NEW_FRAME
+     25  f013		       a9 02		      lda	#%00000010	; load 2 into A. Binary format for visualization of active bits
+     26  f015		       85 01		      sta	VBLANK	; store 2 into VBLANK (enable vblank)
+     27  f017		       85 00		      sta	VSYNC	; Store 2 into VSYNC (enable vsync)
+     28  f019
+     29  f019							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     30  f019							;; Generate 3 scanlines of vsync
+     31  f019							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     32  f019					      REPEAT	3	; do the following 3 times
+     33  f019		       85 02		      sta	WSYNC	; storing anyvalue to the WSYNC address waits for next scanline
+     32  f019					      REPEND		; end repeat
+     33  f01b		       85 02		      sta	WSYNC	; storing anyvalue to the WSYNC address waits for next scanline
+     32  f01b					      REPEND		; end repeat
+     33  f01d		       85 02		      sta	WSYNC	; storing anyvalue to the WSYNC address waits for next scanline
+     34  f01f					      REPEND		; end repeat
+     35  f01f
+     36  f01f		       a9 00		      lda	#0
+     37  f021		       85 00		      sta	VSYNC	; disable VSYNC
+     38  f023
+     39  f023							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     40  f023							;; Let the TIA output the recommended 37 blank scanlines
+     41  f023							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     42  f023		       a2 25		      ldx	#37	; load decimal 37 into X
+     43  f025				   LOOP_VBLANK
+     44  f025		       85 02		      sta	WSYNC	; wait for next scanline
+     45  f027		       ca		      dex		; decrement X
+     46  f028		       d0 fb		      bne	LOOP_VBLANK	; Loop if more lines left
+     47  f02a
+     48  f02a		       a9 00		      lda	#0
+     49  f02c		       85 01		      sta	VBLANK
+     50  f02e
+     51  f02e							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     52  f02e							;; set the CTRLPF register to allow playfield reflection (control playfield)
+     53  f02e							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     54  f02e		       a2 01		      ldx	#%00000001	; in CTRLPF register this means reflect Play field
+     55  f030		       86 0a		      stx	CTRLPF
+     56  f032
+     57  f032							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     58  f032							;; Draw 192 visible scanlines (kernel)
+     59  f032							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+     60  f032
+     61  f032							; skip 7 scanlines with no PF set
+     62  f032		       a2 00		      ldx	#0
+     63  f034		       86 0d		      stx	PF0
+     64  f036		       86 0e		      stx	PF1
+     65  f038		       86 0f		      stx	PF2
+     66  f03a					      REPEAT	7
+     67  f03a		       85 02		      sta	WSYNC
+     66  f03a					      REPEND
+     67  f03c		       85 02		      sta	WSYNC
+     66  f03c					      REPEND
+     67  f03e		       85 02		      sta	WSYNC
+     66  f03e					      REPEND
+     67  f040		       85 02		      sta	WSYNC
+     66  f040					      REPEND
+     67  f042		       85 02		      sta	WSYNC
+     66  f042					      REPEND
+     67  f044		       85 02		      sta	WSYNC
+     66  f044					      REPEND
+     67  f046		       85 02		      sta	WSYNC
+     68  f048					      REPEND
+     69  f048
+     70  f048							; set the PF0 to 1110 and PF1&2 to 1111 1111 for 7 frames
+     71  f048		       a2 e0		      ldx	#%11100000
+     72  f04a		       86 0d		      stx	PF0
+     73  f04c		       a2 ff		      ldX	#%11111111
+     74  f04e		       86 0e		      stx	PF1
+     75  f050		       86 0f		      stx	PF2
+     76  f052					      REPEAT	7
+     77  f052		       85 02		      sta	WSYNC
+     76  f052					      REPEND
+     77  f054		       85 02		      sta	WSYNC
+     76  f054					      REPEND
+     77  f056		       85 02		      sta	WSYNC
+     76  f056					      REPEND
+     77  f058		       85 02		      sta	WSYNC
+     76  f058					      REPEND
+     77  f05a		       85 02		      sta	WSYNC
+     76  f05a					      REPEND
+     77  f05c		       85 02		      sta	WSYNC
+     76  f05c					      REPEND
+     77  f05e		       85 02		      sta	WSYNC
+     78  f060					      REPEND
+     79  f060
+     80  f060							; set the next 164 scanlines with only the pf0 third bit enabled
+     81  f060		       a2 60		      ldx	#%01100000
+     82  f062		       86 0d		      stx	PF0
+     83  f064		       a2 00		      ldx	#0
+     84  f066		       86 0e		      stx	PF1
+     85  f068		       a2 80		      ldx	#%10000000
+     86  f06a		       86 0f		      stx	PF2
+     87  f06c					      REPEAT	164
+     88  f06c		       85 02		      sta	WSYNC
+     87  f06c					      REPEND
+     88  f06e		       85 02		      sta	WSYNC
+     87  f06e					      REPEND
+     88  f070		       85 02		      sta	WSYNC
+     87  f070					      REPEND
+     88  f072		       85 02		      sta	WSYNC
+     87  f072					      REPEND
+     88  f074		       85 02		      sta	WSYNC
+     87  f074					      REPEND
+     88  f076		       85 02		      sta	WSYNC
+     87  f076					      REPEND
+     88  f078		       85 02		      sta	WSYNC
+     87  f078					      REPEND
+     88  f07a		       85 02		      sta	WSYNC
+     87  f07a					      REPEND
+     88  f07c		       85 02		      sta	WSYNC
+     87  f07c					      REPEND
+     88  f07e		       85 02		      sta	WSYNC
+     87  f07e					      REPEND
+     88  f080		       85 02		      sta	WSYNC
+     87  f080					      REPEND
+     88  f082		       85 02		      sta	WSYNC
+     87  f082					      REPEND
+     88  f084		       85 02		      sta	WSYNC
+     87  f084					      REPEND
+     88  f086		       85 02		      sta	WSYNC
+     87  f086					      REPEND
+     88  f088		       85 02		      sta	WSYNC
+     87  f088					      REPEND
+     88  f08a		       85 02		      sta	WSYNC
+     87  f08a					      REPEND
+     88  f08c		       85 02		      sta	WSYNC
+     87  f08c					      REPEND
+     88  f08e		       85 02		      sta	WSYNC
+     87  f08e					      REPEND
+     88  f090		       85 02		      sta	WSYNC
+     87  f090					      REPEND
+     88  f092		       85 02		      sta	WSYNC
+     87  f092					      REPEND
+     88  f094		       85 02		      sta	WSYNC
+     87  f094					      REPEND
+     88  f096		       85 02		      sta	WSYNC
+     87  f096					      REPEND
+     88  f098		       85 02		      sta	WSYNC
+     87  f098					      REPEND
+     88  f09a		       85 02		      sta	WSYNC
+     87  f09a					      REPEND
+     88  f09c		       85 02		      sta	WSYNC
+     87  f09c					      REPEND
+     88  f09e		       85 02		      sta	WSYNC
+     87  f09e					      REPEND
+     88  f0a0		       85 02		      sta	WSYNC
+     87  f0a0					      REPEND
+     88  f0a2		       85 02		      sta	WSYNC
+     87  f0a2					      REPEND
+     88  f0a4		       85 02		      sta	WSYNC
+     87  f0a4					      REPEND
+     88  f0a6		       85 02		      sta	WSYNC
+     87  f0a6					      REPEND
+     88  f0a8		       85 02		      sta	WSYNC
+     87  f0a8					      REPEND
+     88  f0aa		       85 02		      sta	WSYNC
+     87  f0aa					      REPEND
+     88  f0ac		       85 02		      sta	WSYNC
+     87  f0ac					      REPEND
+     88  f0ae		       85 02		      sta	WSYNC
+     87  f0ae					      REPEND
+     88  f0b0		       85 02		      sta	WSYNC
+     87  f0b0					      REPEND
+     88  f0b2		       85 02		      sta	WSYNC
+     87  f0b2					      REPEND
+     88  f0b4		       85 02		      sta	WSYNC
+     87  f0b4					      REPEND
+     88  f0b6		       85 02		      sta	WSYNC
+     87  f0b6					      REPEND
+     88  f0b8		       85 02		      sta	WSYNC
+     87  f0b8					      REPEND
+     88  f0ba		       85 02		      sta	WSYNC
+     87  f0ba					      REPEND
+     88  f0bc		       85 02		      sta	WSYNC
+     87  f0bc					      REPEND
+     88  f0be		       85 02		      sta	WSYNC
+     87  f0be					      REPEND
+     88  f0c0		       85 02		      sta	WSYNC
+     87  f0c0					      REPEND
+     88  f0c2		       85 02		      sta	WSYNC
+     87  f0c2					      REPEND
+     88  f0c4		       85 02		      sta	WSYNC
+     87  f0c4					      REPEND
+     88  f0c6		       85 02		      sta	WSYNC
+     87  f0c6					      REPEND
+     88  f0c8		       85 02		      sta	WSYNC
+     87  f0c8					      REPEND
+     88  f0ca		       85 02		      sta	WSYNC
+     87  f0ca					      REPEND
+     88  f0cc		       85 02		      sta	WSYNC
+     87  f0cc					      REPEND
+     88  f0ce		       85 02		      sta	WSYNC
+     87  f0ce					      REPEND
+     88  f0d0		       85 02		      sta	WSYNC
+     87  f0d0					      REPEND
+     88  f0d2		       85 02		      sta	WSYNC
+     87  f0d2					      REPEND
+     88  f0d4		       85 02		      sta	WSYNC
+     87  f0d4					      REPEND
+     88  f0d6		       85 02		      sta	WSYNC
+     87  f0d6					      REPEND
+     88  f0d8		       85 02		      sta	WSYNC
+     87  f0d8					      REPEND
+     88  f0da		       85 02		      sta	WSYNC
+     87  f0da					      REPEND
+     88  f0dc		       85 02		      sta	WSYNC
+     87  f0dc					      REPEND
+     88  f0de		       85 02		      sta	WSYNC
+     87  f0de					      REPEND
+     88  f0e0		       85 02		      sta	WSYNC
+     87  f0e0					      REPEND
+     88  f0e2		       85 02		      sta	WSYNC
+     87  f0e2					      REPEND
+     88  f0e4		       85 02		      sta	WSYNC
+     87  f0e4					      REPEND
+     88  f0e6		       85 02		      sta	WSYNC
+     87  f0e6					      REPEND
+     88  f0e8		       85 02		      sta	WSYNC
+     87  f0e8					      REPEND
+     88  f0ea		       85 02		      sta	WSYNC
+     87  f0ea					      REPEND
+     88  f0ec		       85 02		      sta	WSYNC
+     87  f0ec					      REPEND
+     88  f0ee		       85 02		      sta	WSYNC
+     87  f0ee					      REPEND
+     88  f0f0		       85 02		      sta	WSYNC
+     87  f0f0					      REPEND
+     88  f0f2		       85 02		      sta	WSYNC
+     87  f0f2					      REPEND
+     88  f0f4		       85 02		      sta	WSYNC
+     87  f0f4					      REPEND
+     88  f0f6		       85 02		      sta	WSYNC
+     87  f0f6					      REPEND
+     88  f0f8		       85 02		      sta	WSYNC
+     87  f0f8					      REPEND
+     88  f0fa		       85 02		      sta	WSYNC
+     87  f0fa					      REPEND
+     88  f0fc		       85 02		      sta	WSYNC
+     87  f0fc					      REPEND
+     88  f0fe		       85 02		      sta	WSYNC
+     87  f0fe					      REPEND
+     88  f100		       85 02		      sta	WSYNC
+     87  f100					      REPEND
+     88  f102		       85 02		      sta	WSYNC
+     87  f102					      REPEND
+     88  f104		       85 02		      sta	WSYNC
+     87  f104					      REPEND
+     88  f106		       85 02		      sta	WSYNC
+     87  f106					      REPEND
+     88  f108		       85 02		      sta	WSYNC
+     87  f108					      REPEND
+     88  f10a		       85 02		      sta	WSYNC
+     87  f10a					      REPEND
+     88  f10c		       85 02		      sta	WSYNC
+     87  f10c					      REPEND
+     88  f10e		       85 02		      sta	WSYNC
+     87  f10e					      REPEND
+     88  f110		       85 02		      sta	WSYNC
+     87  f110					      REPEND
+     88  f112		       85 02		      sta	WSYNC
+     87  f112					      REPEND
+     88  f114		       85 02		      sta	WSYNC
+     87  f114					      REPEND
+     88  f116		       85 02		      sta	WSYNC
+     87  f116					      REPEND
+     88  f118		       85 02		      sta	WSYNC
+     87  f118					      REPEND
+     88  f11a		       85 02		      sta	WSYNC
+     87  f11a					      REPEND
+     88  f11c		       85 02		      sta	WSYNC
+     87  f11c					      REPEND
+     88  f11e		       85 02		      sta	WSYNC
+     87  f11e					      REPEND
+     88  f120		       85 02		      sta	WSYNC
+     87  f120					      REPEND
+     88  f122		       85 02		      sta	WSYNC
+     87  f122					      REPEND
+     88  f124		       85 02		      sta	WSYNC
+     87  f124					      REPEND
+     88  f126		       85 02		      sta	WSYNC
+     87  f126					      REPEND
+     88  f128		       85 02		      sta	WSYNC
+     87  f128					      REPEND
+     88  f12a		       85 02		      sta	WSYNC
+     87  f12a					      REPEND
+     88  f12c		       85 02		      sta	WSYNC
+     87  f12c					      REPEND
+     88  f12e		       85 02		      sta	WSYNC
+     87  f12e					      REPEND
+     88  f130		       85 02		      sta	WSYNC
+     87  f130					      REPEND
+     88  f132		       85 02		      sta	WSYNC
+     87  f132					      REPEND
+     88  f134		       85 02		      sta	WSYNC
+     87  f134					      REPEND
+     88  f136		       85 02		      sta	WSYNC
+     87  f136					      REPEND
+     88  f138		       85 02		      sta	WSYNC
+     87  f138					      REPEND
+     88  f13a		       85 02		      sta	WSYNC
+     87  f13a					      REPEND
+     88  f13c		       85 02		      sta	WSYNC
+     87  f13c					      REPEND
+     88  f13e		       85 02		      sta	WSYNC
+     87  f13e					      REPEND
+     88  f140		       85 02		      sta	WSYNC
+     87  f140					      REPEND
+     88  f142		       85 02		      sta	WSYNC
+     87  f142					      REPEND
+     88  f144		       85 02		      sta	WSYNC
+     87  f144					      REPEND
+     88  f146		       85 02		      sta	WSYNC
+     87  f146					      REPEND
+     88  f148		       85 02		      sta	WSYNC
+     87  f148					      REPEND
+     88  f14a		       85 02		      sta	WSYNC
+     87  f14a					      REPEND
+     88  f14c		       85 02		      sta	WSYNC
+     87  f14c					      REPEND
+     88  f14e		       85 02		      sta	WSYNC
+     87  f14e					      REPEND
+     88  f150		       85 02		      sta	WSYNC
+     87  f150					      REPEND
+     88  f152		       85 02		      sta	WSYNC
+     87  f152					      REPEND
+     88  f154		       85 02		      sta	WSYNC
+     87  f154					      REPEND
+     88  f156		       85 02		      sta	WSYNC
+     87  f156					      REPEND
+     88  f158		       85 02		      sta	WSYNC
+     87  f158					      REPEND
+     88  f15a		       85 02		      sta	WSYNC
+     87  f15a					      REPEND
+     88  f15c		       85 02		      sta	WSYNC
+     87  f15c					      REPEND
+     88  f15e		       85 02		      sta	WSYNC
+     87  f15e					      REPEND
+     88  f160		       85 02		      sta	WSYNC
+     87  f160					      REPEND
+     88  f162		       85 02		      sta	WSYNC
+     87  f162					      REPEND
+     88  f164		       85 02		      sta	WSYNC
+     87  f164					      REPEND
+     88  f166		       85 02		      sta	WSYNC
+     87  f166					      REPEND
+     88  f168		       85 02		      sta	WSYNC
+     87  f168					      REPEND
+     88  f16a		       85 02		      sta	WSYNC
+     87  f16a					      REPEND
+     88  f16c		       85 02		      sta	WSYNC
+     87  f16c					      REPEND
+     88  f16e		       85 02		      sta	WSYNC
+     87  f16e					      REPEND
+     88  f170		       85 02		      sta	WSYNC
+     87  f170					      REPEND
+     88  f172		       85 02		      sta	WSYNC
+     87  f172					      REPEND
+     88  f174		       85 02		      sta	WSYNC
+     87  f174					      REPEND
+     88  f176		       85 02		      sta	WSYNC
+     87  f176					      REPEND
+     88  f178		       85 02		      sta	WSYNC
+     87  f178					      REPEND
+     88  f17a		       85 02		      sta	WSYNC
+     87  f17a					      REPEND
+     88  f17c		       85 02		      sta	WSYNC
+     87  f17c					      REPEND
+     88  f17e		       85 02		      sta	WSYNC
+     87  f17e					      REPEND
+     88  f180		       85 02		      sta	WSYNC
+     87  f180					      REPEND
+     88  f182		       85 02		      sta	WSYNC
+     87  f182					      REPEND
+     88  f184		       85 02		      sta	WSYNC
+     87  f184					      REPEND
+     88  f186		       85 02		      sta	WSYNC
+     87  f186					      REPEND
+     88  f188		       85 02		      sta	WSYNC
+     87  f188					      REPEND
+     88  f18a		       85 02		      sta	WSYNC
+     87  f18a					      REPEND
+     88  f18c		       85 02		      sta	WSYNC
+     87  f18c					      REPEND
+     88  f18e		       85 02		      sta	WSYNC
+     87  f18e					      REPEND
+     88  f190		       85 02		      sta	WSYNC
+     87  f190					      REPEND
+     88  f192		       85 02		      sta	WSYNC
+     87  f192					      REPEND
+     88  f194		       85 02		      sta	WSYNC
+     87  f194					      REPEND
+     88  f196		       85 02		      sta	WSYNC
+     87  f196					      REPEND
+     88  f198		       85 02		      sta	WSYNC
+     87  f198					      REPEND
+     88  f19a		       85 02		      sta	WSYNC
+     87  f19a					      REPEND
+     88  f19c		       85 02		      sta	WSYNC
+     87  f19c					      REPEND
+     88  f19e		       85 02		      sta	WSYNC
+     87  f19e					      REPEND
+     88  f1a0		       85 02		      sta	WSYNC
+     87  f1a0					      REPEND
+     88  f1a2		       85 02		      sta	WSYNC
+     87  f1a2					      REPEND
+     88  f1a4		       85 02		      sta	WSYNC
+     87  f1a4					      REPEND
+     88  f1a6		       85 02		      sta	WSYNC
+     87  f1a6					      REPEND
+     88  f1a8		       85 02		      sta	WSYNC
+     87  f1a8					      REPEND
+     88  f1aa		       85 02		      sta	WSYNC
+     87  f1aa					      REPEND
+     88  f1ac		       85 02		      sta	WSYNC
+     87  f1ac					      REPEND
+     88  f1ae		       85 02		      sta	WSYNC
+     87  f1ae					      REPEND
+     88  f1b0		       85 02		      sta	WSYNC
+     87  f1b0					      REPEND
+     88  f1b2		       85 02		      sta	WSYNC
+     89  f1b4					      REPEND
+     90  f1b4
+     91  f1b4							; set the pf0 to 1110 and pf1&2 to 1111 1111 for next 7 frames
+     92  f1b4		       a2 e0		      ldx	#%11100000
+     93  f1b6		       86 0d		      stx	PF0
+     94  f1b8		       a2 ff		      ldX	#%11111111
+     95  f1ba		       86 0e		      stx	PF1
+     96  f1bc		       86 0f		      stx	PF2
+     97  f1be					      REPEAT	7
+     98  f1be		       85 02		      sta	WSYNC
+     97  f1be					      REPEND
+     98  f1c0		       85 02		      sta	WSYNC
+     97  f1c0					      REPEND
+     98  f1c2		       85 02		      sta	WSYNC
+     97  f1c2					      REPEND
+     98  f1c4		       85 02		      sta	WSYNC
+     97  f1c4					      REPEND
+     98  f1c6		       85 02		      sta	WSYNC
+     97  f1c6					      REPEND
+     98  f1c8		       85 02		      sta	WSYNC
+     97  f1c8					      REPEND
+     98  f1ca		       85 02		      sta	WSYNC
+     99  f1cc					      REPEND
+    100  f1cc
+    101  f1cc							; skip 7 scanlines with no pf set
+    102  f1cc		       a2 00		      ldx	#0
+    103  f1ce		       86 0d		      stx	PF0
+    104  f1d0		       86 0e		      stx	PF1
+    105  f1d2		       86 0f		      stx	PF2
+    106  f1d4					      REPEAT	7
+    107  f1d4		       85 02		      sta	WSYNC
+    106  f1d4					      REPEND
+    107  f1d6		       85 02		      sta	WSYNC
+    106  f1d6					      REPEND
+    107  f1d8		       85 02		      sta	WSYNC
+    106  f1d8					      REPEND
+    107  f1da		       85 02		      sta	WSYNC
+    106  f1da					      REPEND
+    107  f1dc		       85 02		      sta	WSYNC
+    106  f1dc					      REPEND
+    107  f1de		       85 02		      sta	WSYNC
+    106  f1de					      REPEND
+    107  f1e0		       85 02		      sta	WSYNC
+    108  f1e2					      REPEND
+    109  f1e2
+    110  f1e2							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    111  f1e2							;; output 30 more VBLANK LINES (overscan) to complete our frame
+    112  f1e2							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    113  f1e2		       a9 02		      lda	#%00000010	; load binary 2
+    114  f1e4		       85 01		      sta	VBLANK	; enable VBLANK
+    115  f1e6
+    116  f1e6		       a2 1e		      ldx	#30	; load decimal 30, overscan count
+    117  f1e8				   LOOP_OVERSCAN
+    118  f1e8		       85 02		      sta	WSYNC
+    119  f1ea		       ca		      dex
+    120  f1eb		       d0 fb		      bne	LOOP_OVERSCAN
+    121  f1ed		       86 01		      stx	VBLANK	; turn off vblank
+    122  f1ef		       4c 13 f0 	      jmp	NEW_FRAME	; restart loop
+    123  f1f2
+    124  f1f2							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    125  f1f2							;; Pack Rom (reset and interrupt vector)
+    126  f1f2							;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    127  fffc					      org	$FFFC
+    128  fffc		       00 f0		      .word.w	START
+    129  fffe		       00 f0		      .word.w	START
